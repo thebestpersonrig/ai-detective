@@ -5,9 +5,13 @@ export interface WebSearchResult {
   source: string;
 }
 
+interface GeminiPart {
+  text?: string;
+}
+
 interface GeminiCandidate {
-  content: {
-    parts: { text: string }[];
+  content?: {
+    parts?: GeminiPart[];
   };
   groundingMetadata?: {
     groundingChunks?: {
@@ -17,6 +21,7 @@ interface GeminiCandidate {
       segment: { text: string };
       groundingChunkIndices: number[];
     }[];
+    webSearchQueries?: string[];
   };
 }
 
@@ -29,24 +34,16 @@ export async function geminiGroundedSearch(
     return { results: [], summary: "", error: "GEMINI_API_KEY not set" };
   }
 
-  const identifiers: string[] = [];
-  if (context.username) identifiers.push(`- Username: "${context.username}"`);
-  if (context.email) identifiers.push(`- Email: "${context.email}"`);
-  if (context.phone) identifiers.push(`- Phone: "${context.phone}"`);
-  if (context.name) identifiers.push(`- Full name: "${context.name}"`);
+  const parts: string[] = [];
+  if (context.username) parts.push(`username "${context.username}"`);
+  if (context.email) parts.push(`email "${context.email}"`);
+  if (context.phone) parts.push(`phone number "${context.phone}"`);
+  if (context.name) parts.push(`full name "${context.name}"`);
 
-  const prompt = `You are an OSINT investigator building a profile of ONE specific person. Their known identifiers:
-${identifiers.join("\n")}
+  const prompt = `Search the web and compile a summary of publicly available information about a person with the following details:
+${parts.join(", ")}.
 
-CRITICAL RULES:
-- ONLY report findings confidently linked to THIS specific person.
-- Cross-reference: a result is relevant only if it matches 2+ identifiers (e.g. same username AND name, or same email AND username).
-- Do NOT include results about different people who share the same name.
-- For each finding, state which identifiers matched.
-
-Search for: social media profiles, forum posts, personal websites, professional profiles, public mentions, code repositories, gaming profiles.
-
-Write a structured intelligence report. Be concise and factual.`;
+Please search for their social media accounts, websites, forum posts, professional profiles, repositories, and any other public mentions. For each result you find, note which of the above details matched so the reader can verify it is the same person. Only include results where you are confident the details match this specific individual. Organize your findings by category (social media, professional, development, etc).`;
 
   const models = ["gemini-2.5-flash", "gemini-3.1-flash-lite"];
 
@@ -89,12 +86,11 @@ Write a structured intelligence report. Be concise and factual.`;
     return {
       results: [],
       summary: "",
-      error: "All Gemini models rate-limited. Try again in a minute.",
+      error: "All Gemini models unavailable. Try again in a minute.",
     };
   }
 
   try {
-
     const data = await res.json();
     const candidate: GeminiCandidate | undefined = data.candidates?.[0];
 
@@ -102,20 +98,11 @@ Write a structured intelligence report. Be concise and factual.`;
       return {
         results: [],
         summary: "",
-        error: `No candidates. Full response: ${JSON.stringify(data).slice(0, 500)}`,
+        error: `No candidates. Response: ${JSON.stringify(data).slice(0, 500)}`,
       };
     }
 
-    const rawSummary = candidate.content?.parts?.map((p) => p.text).join("") || "";
-    if (!rawSummary) {
-      return {
-        results: [],
-        summary: "",
-        error: `Model responded but no text. Candidate: ${JSON.stringify(candidate).slice(0, 500)}`,
-      };
-    }
-    const summary = `[${usedModel}]\n\n${rawSummary}`;
-
+    // Extract grounding results even if text is empty
     const chunks = candidate.groundingMetadata?.groundingChunks || [];
     const supports = candidate.groundingMetadata?.groundingSupports || [];
 
@@ -133,12 +120,30 @@ Write a structured intelligence report. Be concise and factual.`;
         };
       });
 
+    const rawSummary =
+      candidate.content?.parts
+        ?.filter((p) => p.text)
+        .map((p) => p.text)
+        .join("") || "";
+
+    if (!rawSummary && results.length === 0) {
+      return {
+        results: [],
+        summary: "",
+        error: "Gemini searched but returned no results for this person.",
+      };
+    }
+
+    const summary = rawSummary
+      ? `[${usedModel}]\n\n${rawSummary}`
+      : `[${usedModel}] No AI summary generated, but ${results.length} web results found via grounding.`;
+
     return { results, summary };
   } catch (err) {
     return {
       results: [],
       summary: "",
-      error: `Request failed: ${String(err)}`,
+      error: `Response parsing failed: ${String(err)}`,
     };
   }
 }
