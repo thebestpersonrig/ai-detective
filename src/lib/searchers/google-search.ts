@@ -48,28 +48,51 @@ Search for: social media profiles, forum posts, personal websites, professional 
 
 Write a structured intelligence report. Be concise and factual.`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-        }),
-        signal: AbortSignal.timeout(30000),
-      }
-    );
+  const models = ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash-lite"];
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
-      return {
-        results: [],
-        summary: "",
-        error: `Gemini ${res.status}: ${errBody.slice(0, 300)}`,
-      };
+  let res: Response | null = null;
+  let usedModel = "";
+
+  for (const model of models) {
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            tools: [{ google_search: {} }],
+          }),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+      if (res.ok) {
+        usedModel = model;
+        break;
+      }
+      if (res.status !== 429) {
+        const errBody = await res.text().catch(() => "");
+        return {
+          results: [],
+          summary: "",
+          error: `${model} ${res.status}: ${errBody.slice(0, 300)}`,
+        };
+      }
+    } catch {
+      continue;
     }
+  }
+
+  if (!res || !res.ok) {
+    return {
+      results: [],
+      summary: "",
+      error: "All Gemini models rate-limited. Try again in a minute.",
+    };
+  }
+
+  try {
 
     const data = await res.json();
     const candidate: GeminiCandidate | undefined = data.candidates?.[0];
@@ -82,7 +105,8 @@ Write a structured intelligence report. Be concise and factual.`;
       };
     }
 
-    const summary = candidate.content?.parts?.map((p) => p.text).join("") || "";
+    const rawSummary = candidate.content?.parts?.map((p) => p.text).join("") || "";
+    const summary = rawSummary ? `[${usedModel}]\n\n${rawSummary}` : "";
 
     const chunks = candidate.groundingMetadata?.groundingChunks || [];
     const supports = candidate.groundingMetadata?.groundingSupports || [];
