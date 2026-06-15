@@ -48,7 +48,7 @@ Search for: social media profiles, forum posts, personal websites, professional 
 
 Write a structured intelligence report. Be concise and factual.`;
 
-  const models = ["gemini-2.5-flash-preview-05-20", "gemini-2.0-flash-lite"];
+  const models = ["gemini-2.5-flash-preview-05-20", "gemini-3.1-flash-lite"];
 
   let res: Response | null = null;
   let usedModel = "";
