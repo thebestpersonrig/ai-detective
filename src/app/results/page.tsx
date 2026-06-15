@@ -39,7 +39,7 @@ export default function ResultsPage() {
   const [data, setData] = useState<InvestigationData | null>(null);
   const [activeTab, setActiveTab] = useState<
     "overview" | "platforms" | "breaches" | "web"
-  >("platforms");
+  >("overview");
 
   useEffect(() => {
     const stored = sessionStorage.getItem("investigation");
