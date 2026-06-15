@@ -48,7 +48,7 @@ Search for: social media profiles, forum posts, personal websites, professional 
 
 Write a structured intelligence report. Be concise and factual.`;
 
-  const models = ["gemini-2.5-flash-preview-05-20", "gemini-3.1-flash-lite"];
+  const models = ["gemini-2.5-flash", "gemini-3.1-flash-lite"];
 
   let res: Response | null = null;
   let usedModel = "";
@@ -71,14 +71,15 @@ Write a structured intelligence report. Be concise and factual.`;
         usedModel = model;
         break;
       }
-      if (res.status !== 429) {
-        const errBody = await res.text().catch(() => "");
-        return {
-          results: [],
-          summary: "",
-          error: `${model} ${res.status}: ${errBody.slice(0, 300)}`,
-        };
+      if (res.status === 429 || res.status === 404) {
+        continue;
       }
+      const errBody = await res.text().catch(() => "");
+      return {
+        results: [],
+        summary: "",
+        error: `${model} ${res.status}: ${errBody.slice(0, 300)}`,
+      };
     } catch {
       continue;
     }
