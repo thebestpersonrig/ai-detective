@@ -21,13 +21,17 @@ export async function POST(req: NextRequest) {
     if (input.username) searchQueries.push(`"${input.username}"`);
     if (input.email) searchQueries.push(`"${input.email}"`);
     if (input.phone) searchQueries.push(`"${input.phone}"`);
-
     const combinedQuery = searchQueries.join(" OR ");
 
     const [platforms, geminiResult, serpResults, breaches] =
       await Promise.all([
         checkPlatforms(input.username),
-        geminiGroundedSearch(combinedQuery),
+        geminiGroundedSearch({
+          username: input.username,
+          email: input.email,
+          phone: input.phone,
+          name: input.name,
+        }),
         serpSearch(combinedQuery),
         checkBreaches(input.email),
       ]);
@@ -61,6 +65,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       profile,
       geminiSummary: geminiResult.summary,
+      geminiError: geminiResult.error || null,
       webResults: [
         ...geminiResult.results,
         ...serpResults.map((r) => ({
@@ -71,9 +76,9 @@ export async function POST(req: NextRequest) {
         })),
       ],
     });
-  } catch {
+  } catch (err) {
     return NextResponse.json(
-      { error: "Investigation failed" },
+      { error: `Investigation failed: ${String(err)}` },
       { status: 500 }
     );
   }

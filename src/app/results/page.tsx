@@ -30,6 +30,7 @@ interface WebResult {
 interface InvestigationData {
   profile: ProfileData;
   geminiSummary: string;
+  geminiError: string | null;
   webResults: WebResult[];
 }
 
@@ -57,7 +58,7 @@ export default function ResultsPage() {
     );
   }
 
-  const { profile, geminiSummary, webResults } = data;
+  const { profile, geminiSummary, geminiError, webResults } = data;
   const uniqueWeb = webResults.filter(
     (r, i, arr) => arr.findIndex((x) => x.link === r.link) === i
   );
@@ -198,7 +199,7 @@ export default function ResultsPage() {
         {/* Tab content */}
         <AnimatePresence mode="wait">
           {activeTab === "overview" && (
-            <OverviewTab summary={geminiSummary} />
+            <OverviewTab summary={geminiSummary} error={geminiError} />
           )}
           {activeTab === "platforms" && (
             <PlatformsTab platforms={profile.platforms} />
@@ -213,7 +214,7 @@ export default function ResultsPage() {
   );
 }
 
-function OverviewTab({ summary }: { summary: string }) {
+function OverviewTab({ summary, error }: { summary: string; error: string | null }) {
   if (!summary) {
     return (
       <motion.div
@@ -224,11 +225,16 @@ function OverviewTab({ summary }: { summary: string }) {
         className="bg-card border border-card-border rounded-xl p-12 text-center"
       >
         <Brain className="w-12 h-12 text-muted mx-auto mb-3" />
-        <p className="text-lg font-medium mb-1">No AI Summary</p>
-        <p className="text-muted text-sm">
-          Configure your Gemini API key to get an AI-powered intelligence
-          summary.
-        </p>
+        <p className="text-lg font-medium mb-1">AI Summary Unavailable</p>
+        {error ? (
+          <p className="text-danger text-sm font-mono bg-danger/10 rounded-lg p-3 mt-3 text-left break-all">
+            {error}
+          </p>
+        ) : (
+          <p className="text-muted text-sm">
+            Gemini returned no summary for this search.
+          </p>
+        )}
       </motion.div>
     );
   }
