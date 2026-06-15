@@ -102,12 +102,19 @@ Write a structured intelligence report. Be concise and factual.`;
       return {
         results: [],
         summary: "",
-        error: `No candidates returned. Response: ${JSON.stringify(data).slice(0, 300)}`,
+        error: `No candidates. Full response: ${JSON.stringify(data).slice(0, 500)}`,
       };
     }
 
     const rawSummary = candidate.content?.parts?.map((p) => p.text).join("") || "";
-    const summary = rawSummary ? `[${usedModel}]\n\n${rawSummary}` : "";
+    if (!rawSummary) {
+      return {
+        results: [],
+        summary: "",
+        error: `Model responded but no text. Candidate: ${JSON.stringify(candidate).slice(0, 500)}`,
+      };
+    }
+    const summary = `[${usedModel}]\n\n${rawSummary}`;
 
     const chunks = candidate.groundingMetadata?.groundingChunks || [];
     const supports = candidate.groundingMetadata?.groundingSupports || [];

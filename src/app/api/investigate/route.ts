@@ -16,23 +16,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const searchQueries: string[] = [];
-    if (input.name) searchQueries.push(`"${input.name}"`);
-    if (input.username) searchQueries.push(`"${input.username}"`);
-    if (input.email) searchQueries.push(`"${input.email}"`);
-    if (input.phone) searchQueries.push(`"${input.phone}"`);
-    const combinedQuery = searchQueries.join(" OR ");
+    const searchContext = {
+      username: input.username,
+      email: input.email,
+      phone: input.phone,
+      name: input.name,
+    };
 
     const [platforms, geminiResult, serpResults, breaches] =
       await Promise.all([
         checkPlatforms(input.username),
-        geminiGroundedSearch({
-          username: input.username,
-          email: input.email,
-          phone: input.phone,
-          name: input.name,
-        }),
-        serpSearch(combinedQuery),
+        geminiGroundedSearch(searchContext),
+        serpSearch(searchContext),
         checkBreaches(input.email),
       ]);
 
