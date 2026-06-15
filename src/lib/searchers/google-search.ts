@@ -71,7 +71,7 @@ Write a structured intelligence report. Be concise and factual.`;
         usedModel = model;
         break;
       }
-      if (res.status === 429 || res.status === 404) {
+      if (res.status === 429 || res.status === 404 || res.status === 503) {
         continue;
       }
       const errBody = await res.text().catch(() => "");
